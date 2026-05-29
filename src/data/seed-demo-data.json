@@ -1,0 +1,3 @@
+{
+  "note": "Use src/data/demoData.js as the source for seed shape. Replace users[0].id with the Firebase Auth UID for rohitkumar5480@gmail.com before importing."
+}

@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function activeUser() {
+      return signedIn() && userDoc().data.status != 'suspended';
+    }
+
+    function isAdmin() {
+      return activeUser() && userDoc().data.role == 'admin';
+    }
+
+    function hasPermission(permission) {
+      return activeUser() && (isAdmin() || userDoc().data.permissions[permission] == true);
+    }
+
+    match /users/{uid} {
+      allow read: if activeUser() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /products/{id} {
+      allow read: if activeUser() && hasPermission('parts');
+      allow write: if activeUser() && hasPermission('parts');
+    }
+
+    match /categories/{id} {
+      allow read: if activeUser();
+      allow write: if isAdmin() || hasPermission('settings');
+    }
+
+    match /vendors/{id} {
+      allow read: if activeUser() && hasPermission('vendors');
+      allow write: if activeUser() && hasPermission('vendors');
+    }
+
+    match /purchase_orders/{id} {
+      allow read: if activeUser() && hasPermission('po');
+      allow write: if activeUser() && hasPermission('po');
+    }
+
+    match /stock_transactions/{id} {
+      allow read: if activeUser() && hasPermission('transactions');
+      allow create: if activeUser() && hasPermission('transactions');
+      allow update, delete: if isAdmin();
+    }
+
+    match /activity_logs/{id} {
+      allow read: if isAdmin();
+      allow create: if activeUser();
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{id} {
+      allow read, update: if activeUser() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, delete: if activeUser();
+    }
+
+    match /password_reset_requests/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /settings/{id} {
+      allow read: if activeUser();
+      allow write: if isAdmin();
+    }
+  }
+}
